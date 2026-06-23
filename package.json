@@ -1,0 +1,28 @@
+{
+  "name": "opencode-agents",
+  "version": "1.0.0",
+  "description": "Universal dynamic agent system installer for OpenCode — 41 specialized subagents across 18 agent sets",
+  "bin": {
+    "opencode-agents": "./bin/opencode-agents.js",
+    "opencode-agents-format": "./scripts/format-checker.js",
+    "opencode-agents-doctor": "./scripts/doctor.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "agents/",
+    "sets/",
+    "scripts/",
+    "plugins/",
+    "README.md",
+    "GOAL.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.17.9"
+  }
+}
