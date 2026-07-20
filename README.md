@@ -8,15 +8,8 @@ A universal dynamic agent and agent-set installation system for AI Coding Assist
 
 - **Multi-Framework Auto-Detection**: Automatically detects active AI agent frameworks in your workspace or global environment.
 - **Project Scope vs. Global Scope (`[P/g]`)**: Choose whether to install rules & agents in your current project repository or globally across all projects on your machine.
-- **Interactive Framework Fallback**: If no AI framework is detected automatically, type your preferred framework name to detect/initialize, or view the full list of compatible agent sets.
 - **Native Subagent & Rule Formatting**: Generates framework-native agent definitions and rules:
-  - **OpenCode**: Writes to `.opencode/agents/`, `.opencode/agents-sets/`, `.opencode/plugins/`, and `AGENTS.md`.
-  - **Google Antigravity / Gemini CLI**: Writes skills to `.agents/skills/` (or `.gemini/config/skills/`) and updates both `GEMINI.md` and `AGENTS.md`.
-  - **Claude Code**: Writes subagents to `.claude/agents/*.md` with YAML frontmatter (`name`, `description`, `tools`) and updates `CLAUDE.md`.
-  - **Cline**: Writes modular rules to `.clinerules/*.md` and `.clinerules/agents-summary.md`.
-  - **Kilo Code / Kilocode**: Writes rules to `.kilo/rules/*.md`, registers globs in `kilo.jsonc`, and updates `AGENTS.md`.
-  - **Cursor**: Writes MDC rule files to `.cursor/rules/*.mdc` with frontmatter (`description`, `alwaysApply: false`) and updates `.cursorrules`.
-
+ 
 ---
 
 ## 📦 Installation & Usage
