@@ -1,3 +1,5 @@
+
+
 # Agent Dispatch Rules
 
 ## Permission
@@ -5,16 +7,18 @@
 - Wait for explicit user approval before dispatching
 
 ## Available Sets
-- 18 sets available in C:/Users/hruth/OneDrive/Desktop/openocde-plugin/sets/
-- Each set JSON has: id, name, category, description, agents[], outputPattern
+- Sets installed in `/home/hruthvik9487/Documents/agents/agents-set-plugins/.opencode/agents-sets/`
+- Each set JSON file has: id, name, category, description, agents[], outputPattern
 
 ## Dispatch (V1)
-- Find the matching set by ID in C:/Users/hruth/OneDrive/Desktop/openocde-plugin/sets/
+- Find the matching set JSON file by ID in `/home/hruthvik9487/Documents/agents/agents-set-plugins/.opencode/agents-sets/`
 - For each agent in the set's agents array, call the `task` tool with:
   - description: agent.name
-  - subagent_type: agent.agent_type
+  - subagent_type: agent.file.replace('.md', '')
   - prompt: the task + agent-specific instructions
-- Dispatch agents in parallel using the set's outputPattern format
+- Dispatch read-only agents (audit/research/review sets) in parallel
+- Dispatch write agents (fix/modify sets) **serially** — two agents editing the same file will conflict
+- If a set has both read-only and write agents, dispatch write agents serially after read agents finish
 - After all agents complete, call the plugin's `get_results` tool
 
 ## Output Format

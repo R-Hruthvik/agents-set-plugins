@@ -1,24 +1,39 @@
-const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { adapters, getAdapter } = require('./frameworks');
 
-function detectOpenCode() {
-  const candidates = [
-    { type: 'project', path: path.join(process.cwd(), '.opencode') },
-    { type: 'global', path: path.join(os.homedir(), '.config', 'opencode') },
-  ];
-
-  for (const c of candidates) {
-    if (fs.existsSync(c.path)) {
-      const configPath = path.join(c.path, 'opencode.json');
-      return {
-        scope: c.type,
-        dir: c.path,
-        configPath: fs.existsSync(configPath) ? configPath : null,
-      };
+function detectAllFrameworks(cwd = process.cwd(), homedir = os.homedir()) {
+  const detected = [];
+  for (const adapter of adapters) {
+    const res = adapter.detect(cwd, homedir);
+    if (res) {
+      detected.push(res);
     }
   }
-  return null;
+  return detected;
+}
+
+function detectFrameworkByName(nameInput, scopePreference = 'project', cwd = process.cwd(), homedir = os.homedir()) {
+  if (!nameInput || !nameInput.trim()) return null;
+  const normalized = nameInput.trim().toLowerCase();
+  const matchedAdapter = adapters.find(a => 
+    a.id === normalized || 
+    a.name.toLowerCase().includes(normalized)
+  );
+  if (!matchedAdapter) return null;
+
+  if (scopePreference === 'global' && matchedAdapter.initGlobal) {
+    return matchedAdapter.initGlobal(homedir);
+  }
+
+  const existing = matchedAdapter.detect(cwd, homedir);
+  if (existing) return existing;
+  return matchedAdapter.initProject(cwd);
+}
+
+function detectOpenCode() {
+  const adapter = getAdapter('opencode');
+  return adapter.detect() || adapter.initProject();
 }
 
 function getTargetDir(opencode) {
@@ -26,20 +41,14 @@ function getTargetDir(opencode) {
 }
 
 function createProjectConfig() {
-  const dir = path.join(process.cwd(), '.opencode');
-  const configPath = path.join(dir, 'opencode.json');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(configPath)) {
-    fs.writeFileSync(configPath, JSON.stringify({
-      $schema: 'https://opencode.ai/config.json',
-      agent: {},
-    }, null, 2) + '\n');
-  }
-  return {
-    scope: 'project',
-    dir,
-    configPath,
-  };
+  const adapter = getAdapter('opencode');
+  return adapter.initProject();
 }
 
-module.exports = { detectOpenCode, getTargetDir, createProjectConfig };
+module.exports = {
+  detectAllFrameworks,
+  detectFrameworkByName,
+  detectOpenCode,
+  getTargetDir,
+  createProjectConfig,
+};

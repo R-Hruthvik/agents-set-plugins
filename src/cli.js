@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { detectOpenCode, createProjectConfig } = require('./detector');
+const { detectAllFrameworks, detectFrameworkByName } = require('./detector');
 const { installAgents, loadAllSets } = require('./installer');
+const { getAllAdapters, getAdapter } = require('./frameworks');
 
 let inputQueue = null;
 
@@ -34,45 +35,77 @@ async function prompt(question) {
   });
 }
 
-function hasGlobalConfig() {
-  return fs.existsSync(path.join(os.homedir(), '.config', 'opencode'));
+function showCompatibleSummary(sets) {
+  console.log('\n============================================================');
+  console.log('      Supported AI Agent Frameworks & Compatible Sets       ');
+  console.log('============================================================\n');
+  console.log('Supported Frameworks:');
+  for (const adapter of getAllAdapters()) {
+    console.log(`  • ${adapter.name} (${adapter.id})`);
+  }
+  console.log('\nCompatible Agent Sets Available:');
+  for (let i = 0; i < sets.length; i++) {
+    console.log(`  ${String(i + 1).padStart(2)}.  ${sets[i].name.padEnd(32)} [${sets[i].category}]`);
+  }
+  console.log('\nTo install, initialize one of the frameworks above or run:');
+  console.log('  npx opencode-agents-installer\n');
 }
 
-function hasProjectDir() {
-  return fs.existsSync(path.join(process.cwd(), '.opencode'));
+async function askScopeChoice(frameworkName, frameworkId) {
+  const folderName = `.${frameworkId}`;
+  const ans = await prompt(`Install ${frameworkName} in Project scope (${folderName}/ in current dir) or Global scope (~/${folderName})? [P/g] (default: P):`);
+  const lower = ans.trim().toLowerCase();
+  return (lower === 'g' || lower === 'global') ? 'global' : 'project';
 }
 
 async function resolveTarget() {
-  if (hasProjectDir()) {
-    const oc = detectOpenCode();
-    console.log(`Found project config: ${oc.dir}`);
-    return oc;
+  let detected = detectAllFrameworks();
+
+  if (detected.length === 1) {
+    const target = detected[0];
+    console.log(`Found framework: ${target.name} (current scope: ${target.scope} at ${target.dir})`);
+    const scopeChoice = await askScopeChoice(target.name, target.id);
+    const adapter = getAdapter(target.id);
+    const resolvedTarget = (scopeChoice === 'global' && adapter.initGlobal) ? adapter.initGlobal() : adapter.initProject();
+    return [resolvedTarget];
   }
 
-  if (hasGlobalConfig()) {
-    const answer = await prompt(
-      'Install project-scoped (create .opencode/ here) or globally? [P/g]:'
-    );
-    if (answer.toLowerCase() === 'g' || answer.toLowerCase() === 'global') {
-      const oc = detectOpenCode();
-      console.log(`Installing globally: ${oc.dir}`);
-      return oc;
+  if (detected.length > 1) {
+    console.log('Multiple AI agent frameworks detected:\n');
+    for (let i = 0; i < detected.length; i++) {
+      console.log(`  ${i + 1}. ${detected[i].name} (${detected[i].scope}: ${detected[i].dir})`);
     }
-    const oc = createProjectConfig();
-    console.log(`Created .opencode/ in ${process.cwd()}`);
-    return oc;
+    console.log(`  ${detected.length + 1}. All detected frameworks`);
+    const choice = await prompt(`\nSelect target framework [1-${detected.length + 1}] (default: 1):`);
+    const num = parseInt(choice.trim());
+    
+    if (num === detected.length + 1) return detected;
+    
+    const selected = (num >= 1 && num <= detected.length) ? detected[num - 1] : detected[0];
+    const scopeChoice = await askScopeChoice(selected.name, selected.id);
+    const adapter = getAdapter(selected.id);
+    const resolvedTarget = (scopeChoice === 'global' && adapter.initGlobal) ? adapter.initGlobal() : adapter.initProject();
+    return [resolvedTarget];
   }
 
-  const answer = await prompt(
-    'No OpenCode config found. Create .opencode/ in current directory? (Y/n):'
-  );
-  if (answer.toLowerCase() === 'n' || answer.toLowerCase() === 'no') {
-    console.log('Installation cancelled.');
-    process.exit(0);
+  // Fallback: No framework detected
+  console.log('No supported AI agent framework detected automatically.\n');
+  const typedName = await prompt('Type an undetected framework to target (e.g. opencode, antigravity, claude, cline, kilocode, cursor) or press Enter to skip:');
+
+  if (typedName) {
+    const scopeChoice = await askScopeChoice(typedName, typedName.trim().toLowerCase());
+    const manualResult = detectFrameworkByName(typedName, scopeChoice);
+    if (manualResult) {
+      console.log(`Targeting framework: ${manualResult.name} [${manualResult.scope}] (${manualResult.dir})`);
+      return [manualResult];
+    } else {
+      console.log(`Could not initialize framework target "${typedName}".`);
+    }
   }
-  const oc = createProjectConfig();
-  console.log(`Created .opencode/ in ${process.cwd()}`);
-  return oc;
+
+  const sets = loadAllSets();
+  showCompatibleSummary(sets);
+  process.exit(0);
 }
 
 async function selectSets(sets) {
@@ -102,9 +135,9 @@ async function selectSets(sets) {
 }
 
 async function main() {
-  console.log('OpenCode Agents Installer\n');
+  console.log('Universal AI Agent Sets Installer\n');
 
-  const opencode = await resolveTarget();
+  const targets = await resolveTarget();
 
   const sets = loadAllSets();
   console.log(`Found ${sets.length} agent sets available.\n`);
@@ -118,11 +151,14 @@ async function main() {
 
   console.log(`\nSelected sets: ${selectedSets.join(', ')}`);
 
-  const result = installAgents(selectedSets, opencode);
+  const result = installAgents(selectedSets, targets);
 
-  console.log(`\nInstalled ${result.agentCount} agents to ${result.targetDir}`);
-  console.log(`Installed plugin for agent lifecycle tracking.`);
-  console.log('\nRestart OpenCode for changes to take effect.');
+  console.log('\n============================================================');
+  console.log('Installation Summary:');
+  for (const r of result.results) {
+    console.log(`  • ${r.frameworkName}: Installed ${r.agentCount} agents into ${r.targetDir}`);
+  }
+  console.log('============================================================\n');
 
   process.exit(0);
 }

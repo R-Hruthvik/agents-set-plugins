@@ -1,5 +1,28 @@
+# Node dependencies
 node_modules/
+
+# Environment and logs
 .env
 *.log
 .DS_Store
 Thumbs.db
+
+# Package tarballs
+*.tgz
+*.tar.gz
+
+# Knowledge graph output
+graphify-out/
+
+# Local framework test & install directories
+.opencode/
+.agents/
+.gemini/
+.claude/
+.clinerules/
+.kilo/
+.cursor/
+
+# Temporary test outputs
+test/tmp_*
+test/mock_*
