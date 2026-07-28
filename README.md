@@ -1,4 +1,4 @@
-# Universal AI Agent & Agent Sets Installer
+# @hruthvik-r/agents-sets — Universal AI Agent Sets System
 
 A universal dynamic agent and agent-set installation system for AI Coding Assistant Frameworks. Supports **OpenCode**, **Google Antigravity / Gemini CLI**, **Claude Code**, **Cline**, **Kilo Code / Kilocode**, and **Cursor** with 41 specialized subagents across 18 agent sets.
 
@@ -7,33 +7,40 @@ A universal dynamic agent and agent-set installation system for AI Coding Assist
 ## 🚀 Features
 
 - **Multi-Framework Auto-Detection**: Automatically detects active AI agent frameworks in your workspace or global environment.
-- **Project Scope vs. Global Scope (`[P/g]`)**: Choose whether to install rules & agents in your current project repository or globally across all projects on your machine.
+- **Project Scope vs. Global Scope (`[P/g]`)**: Choose whether to install rules & agents in your current project repository or globally across all projects on your machine (prompted for single or multi-target selections).
+- **Interactive Action Menu**:
+  - **1. Install / Update Agent Sets**: Select and install agent sets.
+  - **2. Uninstall Specific Agent Set**: Detects currently installed sets and lets you remove specific agent sets and their exclusive subagent files.
+  - **3. Clean Uninstall**: Remove all installed agent sets, subagents, and plugins across targeted framework(s).
+- **Interactive Framework Fallback**: If no AI framework is detected automatically, type your preferred framework name to detect/initialize, or view the full list of compatible agent sets.
 - **Native Subagent & Rule Formatting**: Generates framework-native agent definitions and rules:
- 
+  - **OpenCode**: Writes to `.opencode/agents/`, `.opencode/agents-sets/`, `.opencode/plugins/`, and `AGENTS.md`.
+  - **Google Antigravity / Gemini CLI**: Writes skills to `.agents/skills/` (or `.gemini/config/skills/`) and updates both `GEMINI.md` and `AGENTS.md`.
+  - **Claude Code**: Writes subagents to `.claude/agents/*.md` with YAML frontmatter (`name`, `description`, `tools`) and updates `CLAUDE.md`.
+  - **Cline**: Writes modular rules to `.clinerules/*.md` and `.clinerules/agents-summary.md`.
+  - **Kilo Code / Kilocode**: Writes rules to `.kilo/rules/*.md`, registers globs in `kilo.jsonc`, and updates `AGENTS.md`.
+  - **Cursor**: Writes MDC rule files to `.cursor/rules/*.mdc` with frontmatter (`description`, `alwaysApply: false`) and updates `.cursorrules`.
+
 ---
 
 ## 📦 Installation & Usage
 
 ```bash
 # Global installation via NPM
-npm install -g opencode-agents
+npm install -g @hruthvik-r/agents-sets
 
-# Run the universal installer
-opencode-agents
+# Run the universal installer & manager
+agents-sets
 
 # Or run directly via npx
-npx opencode-agents
+npx @hruthvik-r/agents-sets
 ```
 
-### Additional Utilities
+### Uninstallation Options
 
-```bash
-# Check agent file formatting
-opencode-agents-format
-
-# Run full validation & auto-fix doctor
-opencode-agents-doctor
-```
+Run `agents-sets` (or `npx @hruthvik-r/agents-sets`) and select option **2 (Uninstall Agent Sets / Clean Remove)**:
+- **Remove a specific set**: Automatically detects installed agent sets and removes the selected set JSON along with any subagent files that belong exclusively to that set (preserving agents shared with other active sets).
+- **Clean Uninstall**: Removes all installed agent sets, subagents, plugins, and rule headers across targeted frameworks.
 
 ---
 
@@ -89,14 +96,15 @@ opencode-agents-doctor
 ```
 agents-set-plugins/
 ├── bin/
-│   ├── opencode-agents.js          # CLI entry point
-│   ├── opencode-agents-doctor.js   # Validation doctor CLI
-│   └── opencode-agents-format.js   # Format checker CLI
+│   ├── agents-sets.js              # Primary CLI entry point
+│   ├── opencode-agents.js          # Backward-compatibility alias
+│   ├── agents-sets-doctor.js       # Validation doctor CLI
+│   └── agents-sets-format.js       # Format checker CLI
 ├── src/
-│   ├── cli.js                      # Universal interactive CLI installer
+│   ├── cli.js                      # Universal interactive CLI installer & uninstaller
 │   ├── detector.js                 # Multi-framework detection engine
-│   ├── frameworks.js               # Framework adapters (OpenCode, Antigravity, Claude, Cline, Kilo, Cursor)
-│   ├── installer.js                # Multi-target agent & rules installer
+│   ├── frameworks.js               # Framework adapters with install & uninstall handlers
+│   ├── installer.js                # Multi-target install & uninstall engine
 │   ├── configurator.js             # Configuration file manager
 │   └── doctor.js                   # Validation engine
 ├── agents/                         # 41 specialized subagent markdown definitions

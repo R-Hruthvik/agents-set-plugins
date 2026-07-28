@@ -29,6 +29,11 @@ function writeManifest(dir, agentNames, setIds) {
   fs.writeFileSync(mp, JSON.stringify(manifest, null, 2) + '\n');
 }
 
+function removeManifest(dir) {
+  const mp = getManifestPath(dir);
+  if (fs.existsSync(mp)) fs.unlinkSync(mp);
+}
+
 function getSelectedAgentNames(sets, selectedSetIds) {
   const names = new Set();
   for (const set of sets) {
@@ -88,6 +93,43 @@ function installAgents(selectedSets, targetFrameworksInput) {
   };
 }
 
+function uninstallAgents(setIdsToRemoveInput, targetFrameworksInput, isRemoveAll = false) {
+  const sets = loadAllSets();
+  const targetFrameworks = Array.isArray(targetFrameworksInput) ? targetFrameworksInput : [targetFrameworksInput];
+  const results = [];
+
+  for (const targetConfig of targetFrameworks) {
+    const adapter = getAdapter(targetConfig.id);
+    if (!adapter) continue;
+
+    const prevManifest = readManifest(targetConfig.dir);
+    if (isRemoveAll) {
+      adapter.uninstall([], [], targetConfig, true);
+      removeManifest(targetConfig.dir);
+      results.push({ frameworkId: targetConfig.id, frameworkName: adapter.name, uninstalledSetsCount: prevManifest.sets.length, isRemoveAll: true });
+    } else {
+      const setIdsToRemove = Array.isArray(setIdsToRemoveInput) ? setIdsToRemoveInput : [setIdsToRemoveInput];
+      const remainingSets = prevManifest.sets.filter(s => !setIdsToRemove.includes(s));
+      
+      const removedSetAgentNames = getSelectedAgentNames(sets, setIdsToRemove);
+      const remainingSetAgentNames = getSelectedAgentNames(sets, remainingSets);
+      
+      const exclusiveAgentsToRemove = removedSetAgentNames.filter(a => !remainingSetAgentNames.includes(a));
+
+      adapter.uninstall(setIdsToRemove, exclusiveAgentsToRemove, targetConfig, false);
+
+      if (remainingSets.length === 0) {
+        removeManifest(targetConfig.dir);
+      } else {
+        writeManifest(targetConfig.dir, remainingSetAgentNames, remainingSets);
+      }
+      results.push({ frameworkId: targetConfig.id, frameworkName: adapter.name, uninstalledSetsCount: setIdsToRemove.length, removedAgentsCount: exclusiveAgentsToRemove.length, isRemoveAll: false });
+    }
+  }
+
+  return { results };
+}
+
 function parseFrontmatter(content) {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return {};
@@ -105,4 +147,4 @@ function parseFrontmatter(content) {
   return fm;
 }
 
-module.exports = { installAgents, loadAllSets, parseFrontmatter };
+module.exports = { installAgents, uninstallAgents, readManifest, loadAllSets, parseFrontmatter };

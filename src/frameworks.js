@@ -8,17 +8,91 @@ function ensureDir(dirPath) {
   }
 }
 
-function updateMarkdownRule(filePath, sectionHeader, sectionContent) {
-  let existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
-  const idx = existing.indexOf(sectionHeader);
-  if (idx !== -1) {
-    const afterSection = existing.slice(idx + sectionHeader.length);
-    const nextHeaderMatch = afterSection.match(/\n# /);
-    const endIdx = nextHeaderMatch ? idx + sectionHeader.length + nextHeaderMatch.index : existing.length;
-    existing = existing.slice(0, idx) + existing.slice(endIdx);
+function removeMarkdownRuleSection(filePath, headersToRemove) {
+  if (!fs.existsSync(filePath)) return;
+  const headers = Array.isArray(headersToRemove) ? headersToRemove : [headersToRemove];
+  let existing = fs.readFileSync(filePath, 'utf-8');
+
+  for (const sectionHeader of headers) {
+    let idx = existing.indexOf(sectionHeader);
+    while (idx !== -1) {
+      const afterSection = existing.slice(idx + sectionHeader.length);
+      const nextHeaderMatch = afterSection.match(/\n# /);
+      const endIdx = nextHeaderMatch ? idx + sectionHeader.length + nextHeaderMatch.index : existing.length;
+      existing = existing.slice(0, idx) + existing.slice(endIdx);
+      idx = existing.indexOf(sectionHeader);
+    }
   }
+
+  const cleaned = existing.trimEnd();
+  if (cleaned.length === 0) {
+    fs.unlinkSync(filePath);
+  } else {
+    fs.writeFileSync(filePath, cleaned + '\n');
+  }
+}
+
+function updateMarkdownRule(filePath, headersToRemove, primaryHeader, sectionContent) {
+  ensureDir(path.dirname(filePath));
+  let existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+
+  const headers = Array.isArray(headersToRemove) ? headersToRemove : [headersToRemove];
+  for (const h of headers) {
+    let idx = existing.indexOf(h);
+    while (idx !== -1) {
+      const afterSection = existing.slice(idx + h.length);
+      const nextHeaderMatch = afterSection.match(/\n# /);
+      const endIdx = nextHeaderMatch ? idx + h.length + nextHeaderMatch.index : existing.length;
+      existing = existing.slice(0, idx) + existing.slice(endIdx);
+      idx = existing.indexOf(h);
+    }
+  }
+
   const updated = existing.trimEnd() ? existing.trimEnd() + '\n\n' + sectionContent : sectionContent;
   fs.writeFileSync(filePath, updated);
+}
+
+function buildDispatchRules(setsTargetDir, selectedSetIds) {
+  const setsPath = setsTargetDir.replace(/\\/g, '/');
+  return [
+    '# Agent Dispatch Rules',
+    '',
+    '## Trigger & Usage',
+    `- When the user asks to analyze, audit, review, debug, or fix issues (or explicitly mentions "agents-sets"), you MUST look up the available agent sets under \`${setsPath}/\` first.`,
+    '- Do NOT perform the fixes or audits directly yourself. Instead, identify the appropriate agent set, describe it to the user, and ask for permission to dispatch it.',
+    '',
+    '## Permission',
+    '- NEVER auto-dispatch subagents. Always describe the set and ask: "Shall I dispatch [set name] ([N] agents)?"',
+    '- Wait for explicit user approval before dispatching',
+    '',
+    '## Available Agent Sets',
+    `- Sets installed in \`${setsPath}/\``,
+    `- Installed set IDs: ${selectedSetIds.join(', ')}`,
+    '- Each set JSON file has: id, name, category, description, agents[], outputPattern',
+    '',
+    '## Dispatch Rules',
+    `- Find the matching set JSON file by ID in \`${setsPath}/\``,
+    '- Read each agent\'s `"permission"` field from the set JSON (`"read"` or `"write"`)',
+    '- For each agent in the set\'s agents array, dispatch subagents with:',
+    '  - description: agent.name',
+    '  - subagent_type: agent.file.replace(\'.md\', \'\')',
+    '  - prompt: the task + the agent\'s specific `"role"` description from the set JSON. Do NOT include the full agent instruction markdown file in the prompt parameter, as the subagent automatically loads it via its type/skill name.',
+    '- Dispatch read-only agents (`"permission": "read"`) in parallel',
+    '- Dispatch write agents (`"permission": "write"`) **serially** — two agents editing the same file will conflict',
+    '- If a set has both read-only and write agents, dispatch write agents serially AFTER all read agents finish',
+    '- NEVER dispatch more than one agent set at a time — complete one set fully before starting another',
+    '- After all agents in a set complete, compile the results before proceeding',
+    '',
+    '## Output Format',
+    '- Each result must have: source set, agent name, finding, evidence',
+    '- Compile into a structured report grouped by agent',
+    '',
+    '## Writing Rules',
+    '- Use concise bullet points for findings',
+    '- Evidence paths: file:line format',
+    '- No commentary or editorializing in agent output',
+    ''
+  ].join('\n');
 }
 
 function installSetsAndPlugins(targetConfig, setObjs, pkgInfo) {
@@ -87,10 +161,36 @@ const adapters = [
       }
       const setsTargetDir = installSetsAndPlugins(targetConfig, setObjs, pkgInfo);
 
-      const agentsMdPath = targetConfig.scope === 'global' ? path.join(os.homedir(), '.config', 'opencode', 'AGENTS.md') : path.join(process.cwd(), 'AGENTS.md');
-      const rulesContent = `# Agent Dispatch Rules\n\n## Permission\n- NEVER auto-dispatch subagents. Always describe the set and ask: "Shall I dispatch [set name] ([N] agents)?"\n- Wait for explicit user approval before dispatching\n\n## Available Sets\n- Sets installed in \`${setsTargetDir.replace(/\\/g, '/')}/\`\n- Each set JSON file has: id, name, category, description, agents[], outputPattern\n\n## Dispatch (V1)\n- Find the matching set JSON file by ID in \`${setsTargetDir.replace(/\\/g, '/')}/\`\n- For each agent in the set's agents array, call the \`task\` tool\n- Dispatch read-only agents in parallel; dispatch write agents serially\n\n## Output Format\n- Each result must have: source set, agent name, finding, evidence\n`;
-      updateMarkdownRule(agentsMdPath, '# Agent Dispatch Rules', rulesContent);
+      const rulesContent = buildDispatchRules(setsTargetDir, selectedSetIds);
+
+      const agentsMdPath = targetConfig.scope === 'global'
+        ? path.join(targetConfig.dir, 'AGENTS.md')
+        : path.join(process.cwd(), 'AGENTS.md');
+
+      updateMarkdownRule(agentsMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules'], '# Agent Dispatch Rules', rulesContent);
       return { agentCount: allAgentNames.length, targetDir };
+    },
+    uninstall(setIdsToRemove, agentNamesToRemove, targetConfig, isRemoveAll) {
+      const targetDir = path.join(targetConfig.dir, 'agents');
+      const setsTargetDir = path.join(targetConfig.dir, 'agents-sets');
+      if (isRemoveAll) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+        fs.rmSync(setsTargetDir, { recursive: true, force: true });
+        fs.rmSync(path.join(targetConfig.dir, 'plugins'), { recursive: true, force: true });
+        const agentsMdPath = targetConfig.scope === 'global'
+          ? path.join(targetConfig.dir, 'AGENTS.md')
+          : path.join(process.cwd(), 'AGENTS.md');
+        removeMarkdownRuleSection(agentsMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules']);
+      } else {
+        for (const setObj of setIdsToRemove) {
+          const sf = path.join(setsTargetDir, `${setObj}.json`);
+          if (fs.existsSync(sf)) fs.unlinkSync(sf);
+        }
+        for (const agName of agentNamesToRemove) {
+          const af = path.join(targetDir, `${agName}.md`);
+          if (fs.existsSync(af)) fs.unlinkSync(af);
+        }
+      }
     }
   },
   {
@@ -135,13 +235,37 @@ const adapters = [
       }
       const setsTargetDir = installSetsAndPlugins(targetConfig, setObjs, pkgInfo);
 
-      const ruleHeader = '# Agent Dispatch Rules';
-      const rulesContent = `# Agent Dispatch Rules\n\n## Permission\n- NEVER auto-dispatch subagents. Always describe the set and ask: "Shall I dispatch [set name] ([N] agents)?"\n- Wait for explicit user approval before dispatching\n\n## Available Agent Sets\n- Sets installed in \`${setsTargetDir.replace(/\\/g, '/')}/\`\n- Installed set IDs: ${selectedSetIds.join(', ')}\n`;
+      const rulesContent = buildDispatchRules(setsTargetDir, selectedSetIds);
       
-      const targetBase = targetConfig.scope === 'global' ? targetConfig.dir : process.cwd();
-      updateMarkdownRule(path.join(targetBase, 'AGENTS.md'), ruleHeader, rulesContent);
-      updateMarkdownRule(path.join(targetBase, 'GEMINI.md'), ruleHeader, rulesContent);
+      const ruleHeaders = ['# Agent Dispatch Rules', '# Agent Set Rules'];
+      const agentsMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'AGENTS.md') : path.join(process.cwd(), 'AGENTS.md');
+      const geminiMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'GEMINI.md') : path.join(process.cwd(), 'GEMINI.md');
+
+      updateMarkdownRule(agentsMdPath, ruleHeaders, '# Agent Dispatch Rules', rulesContent);
+      updateMarkdownRule(geminiMdPath, ruleHeaders, '# Agent Dispatch Rules', rulesContent);
       return { agentCount: allAgentNames.length, targetDir: skillsTargetDir };
+    },
+    uninstall(setIdsToRemove, agentNamesToRemove, targetConfig, isRemoveAll) {
+      const skillsTargetDir = path.join(targetConfig.dir, 'skills');
+      const setsTargetDir = path.join(targetConfig.dir, 'agents-sets');
+      if (isRemoveAll) {
+        fs.rmSync(skillsTargetDir, { recursive: true, force: true });
+        fs.rmSync(setsTargetDir, { recursive: true, force: true });
+        fs.rmSync(path.join(targetConfig.dir, 'plugins'), { recursive: true, force: true });
+        const agentsMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'AGENTS.md') : path.join(process.cwd(), 'AGENTS.md');
+        const geminiMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'GEMINI.md') : path.join(process.cwd(), 'GEMINI.md');
+        removeMarkdownRuleSection(agentsMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules']);
+        removeMarkdownRuleSection(geminiMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules']);
+      } else {
+        for (const setObj of setIdsToRemove) {
+          const sf = path.join(setsTargetDir, `${setObj}.json`);
+          if (fs.existsSync(sf)) fs.unlinkSync(sf);
+        }
+        for (const agName of agentNamesToRemove) {
+          const sDir = path.join(skillsTargetDir, agName);
+          if (fs.existsSync(sDir)) fs.rmSync(sDir, { recursive: true, force: true });
+        }
+      }
     }
   },
   {
@@ -182,11 +306,37 @@ const adapters = [
       }
       const setsTargetDir = installSetsAndPlugins(targetConfig, setObjs, pkgInfo);
 
-      const claudeMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'CLAUDE.md') : path.join(process.cwd(), 'CLAUDE.md');
-      const ruleHeader = '# Agent Set Rules';
-      const rulesContent = `# Agent Set Rules\n\n## Agent Sets Installed\n- Sets installed in \`${setsTargetDir.replace(/\\/g, '/')}/\`\n- Installed set IDs: ${selectedSetIds.join(', ')}\n\n## Subagents Installed\n${allAgentNames.map(n => `- \`.claude/agents/${n}.md\``).join('\n')}\n\n## Instructions\n- Use subagents in \`.claude/agents/\` for specialized tasks.\n- Always request approval before executing destructive actions.\n`;
-      updateMarkdownRule(claudeMdPath, ruleHeader, rulesContent);
+      const claudeMdPath = targetConfig.scope === 'global'
+        ? path.join(targetConfig.dir, 'CLAUDE.md')
+        : path.join(process.cwd(), 'CLAUDE.md');
+
+      const rulesContent = buildDispatchRules(setsTargetDir, selectedSetIds);
+
+      updateMarkdownRule(claudeMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules'], '# Agent Dispatch Rules', rulesContent);
       return { agentCount: allAgentNames.length, targetDir: agentsTargetDir };
+    },
+    uninstall(setIdsToRemove, agentNamesToRemove, targetConfig, isRemoveAll) {
+      const agentsTargetDir = path.join(targetConfig.dir, 'agents');
+      const setsTargetDir = path.join(targetConfig.dir, 'agents-sets');
+      const claudeMdPath = targetConfig.scope === 'global'
+        ? path.join(targetConfig.dir, 'CLAUDE.md')
+        : path.join(process.cwd(), 'CLAUDE.md');
+
+      if (isRemoveAll) {
+        fs.rmSync(agentsTargetDir, { recursive: true, force: true });
+        fs.rmSync(setsTargetDir, { recursive: true, force: true });
+        fs.rmSync(path.join(targetConfig.dir, 'plugins'), { recursive: true, force: true });
+        removeMarkdownRuleSection(claudeMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules']);
+      } else {
+        for (const setObj of setIdsToRemove) {
+          const sf = path.join(setsTargetDir, `${setObj}.json`);
+          if (fs.existsSync(sf)) fs.unlinkSync(sf);
+        }
+        for (const agName of agentNamesToRemove) {
+          const af = path.join(agentsTargetDir, `${agName}.md`);
+          if (fs.existsSync(af)) fs.unlinkSync(af);
+        }
+      }
     }
   },
   {
@@ -223,10 +373,25 @@ const adapters = [
       }
       const setsTargetDir = installSetsAndPlugins(targetConfig, setObjs, pkgInfo);
 
+      const summaryContent = buildDispatchRules(setsTargetDir, selectedSetIds);
       const summaryFile = path.join(targetConfig.dir, 'agents-summary.md');
-      const content = `# Active Agent Rules & Sets\n\n## Sets Installed\n- Location: \`${setsTargetDir.replace(/\\/g, '/')}/\`\n- IDs: ${selectedSetIds.join(', ')}\n\n## Subagents\n${allAgentNames.map(n => `- **${n}**`).join('\n')}\n`;
-      fs.writeFileSync(summaryFile, content);
+      fs.writeFileSync(summaryFile, summaryContent);
       return { agentCount: allAgentNames.length, targetDir: targetConfig.dir };
+    },
+    uninstall(setIdsToRemove, agentNamesToRemove, targetConfig, isRemoveAll) {
+      const setsTargetDir = path.join(targetConfig.dir, 'agents-sets');
+      if (isRemoveAll) {
+        fs.rmSync(targetConfig.dir, { recursive: true, force: true });
+      } else {
+        for (const setObj of setIdsToRemove) {
+          const sf = path.join(setsTargetDir, `${setObj}.json`);
+          if (fs.existsSync(sf)) fs.unlinkSync(sf);
+        }
+        for (const agName of agentNamesToRemove) {
+          const af = path.join(targetConfig.dir, `${agName}.md`);
+          if (fs.existsSync(af)) fs.unlinkSync(af);
+        }
+      }
     }
   },
   {
@@ -294,12 +459,32 @@ const adapters = [
       }
       fs.writeFileSync(jsoncPath, JSON.stringify(jsoncData, null, 2) + '\n');
 
+      const rulesContent = buildDispatchRules(setsTargetDir, selectedSetIds);
+
       const agentsMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'AGENTS.md') : path.join(process.cwd(), 'AGENTS.md');
-      const ruleHeader = '# Agent Dispatch Rules';
-      const rulesContent = `# Agent Dispatch Rules\n\n- Active Kilo Code rules installed in \`.kilo/rules/\`.\n- Agent sets installed in \`${setsTargetDir.replace(/\\/g, '/')}/\`.\n`;
-      updateMarkdownRule(agentsMdPath, ruleHeader, rulesContent);
+      updateMarkdownRule(agentsMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules'], '# Agent Dispatch Rules', rulesContent);
 
       return { agentCount: allAgentNames.length, targetDir: rulesTargetDir };
+    },
+    uninstall(setIdsToRemove, agentNamesToRemove, targetConfig, isRemoveAll) {
+      const rulesTargetDir = path.join(targetConfig.dir, 'rules');
+      const setsTargetDir = path.join(targetConfig.dir, 'agents-sets');
+      if (isRemoveAll) {
+        fs.rmSync(rulesTargetDir, { recursive: true, force: true });
+        fs.rmSync(setsTargetDir, { recursive: true, force: true });
+        fs.rmSync(path.join(targetConfig.dir, 'plugins'), { recursive: true, force: true });
+        const agentsMdPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, 'AGENTS.md') : path.join(process.cwd(), 'AGENTS.md');
+        removeMarkdownRuleSection(agentsMdPath, ['# Agent Dispatch Rules', '# Agent Set Rules']);
+      } else {
+        for (const setObj of setIdsToRemove) {
+          const sf = path.join(setsTargetDir, `${setObj}.json`);
+          if (fs.existsSync(sf)) fs.unlinkSync(sf);
+        }
+        for (const agName of agentNamesToRemove) {
+          const af = path.join(rulesTargetDir, `${agName}.md`);
+          if (fs.existsSync(af)) fs.unlinkSync(af);
+        }
+      }
     }
   },
   {
@@ -340,12 +525,32 @@ const adapters = [
       }
       const setsTargetDir = installSetsAndPlugins(targetConfig, setObjs, pkgInfo);
 
+      const rulesContent = buildDispatchRules(setsTargetDir, selectedSetIds);
+
       const cursorRulesPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, '.cursorrules') : path.join(process.cwd(), '.cursorrules');
-      const ruleHeader = '# Agent Set Rules';
-      const rulesContent = `# Agent Set Rules\n\nInstalled Cursor rules in \`.cursor/rules/\`.\nInstalled agent sets in \`${setsTargetDir.replace(/\\/g, '/')}/\`.\n`;
-      updateMarkdownRule(cursorRulesPath, ruleHeader, rulesContent);
+      updateMarkdownRule(cursorRulesPath, ['# Agent Dispatch Rules', '# Agent Set Rules'], '# Agent Dispatch Rules', rulesContent);
 
       return { agentCount: allAgentNames.length, targetDir: rulesTargetDir };
+    },
+    uninstall(setIdsToRemove, agentNamesToRemove, targetConfig, isRemoveAll) {
+      const rulesTargetDir = path.join(targetConfig.dir, 'rules');
+      const setsTargetDir = path.join(targetConfig.dir, 'agents-sets');
+      if (isRemoveAll) {
+        fs.rmSync(rulesTargetDir, { recursive: true, force: true });
+        fs.rmSync(setsTargetDir, { recursive: true, force: true });
+        fs.rmSync(path.join(targetConfig.dir, 'plugins'), { recursive: true, force: true });
+        const cursorRulesPath = targetConfig.scope === 'global' ? path.join(targetConfig.dir, '.cursorrules') : path.join(process.cwd(), '.cursorrules');
+        removeMarkdownRuleSection(cursorRulesPath, ['# Agent Dispatch Rules', '# Agent Set Rules']);
+      } else {
+        for (const setObj of setIdsToRemove) {
+          const sf = path.join(setsTargetDir, `${setObj}.json`);
+          if (fs.existsSync(sf)) fs.unlinkSync(sf);
+        }
+        for (const agName of agentNamesToRemove) {
+          const af = path.join(rulesTargetDir, `${agName}.mdc`);
+          if (fs.existsSync(af)) fs.unlinkSync(af);
+        }
+      }
     }
   }
 ];
