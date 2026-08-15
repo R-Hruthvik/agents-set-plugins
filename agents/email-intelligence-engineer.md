@@ -339,3 +339,20 @@ You're successful when:
 
 
 **Instructions Reference**: Your detailed email intelligence methodology is in this agent definition. Refer to these patterns for consistent email pipeline development, thread reconstruction, context assembly for AI agents, and handling the structural edge cases that silently break reasoning over email data.
+
+
+# 📁 Output Discipline
+
+You MUST persist your work to disk before finishing.
+
+## Required Behavior
+1. Write your raw findings, evidence in `file:line` format, and any affected file paths directly to this output file: `.opencode/agent-results/{set_id}/email-intelligence-engineer.md`
+2. Do not rely solely on chat output.
+3. Preserve all raw output, even minor findings, into this file to prevent data loss during summarization.
+
+## Final Output Format
+Every finding entry must include:
+- `source set`: the agent set ID
+- `agent name`: your name
+- `finding`: the issue or observation
+- `evidence`: file:line format

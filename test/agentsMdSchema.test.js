@@ -1,21 +1,25 @@
 const { validateSetSummary, validateAgentEntry } = require('../src/agentsMdSchema');
+const { test, describe, it } = require('node:test');
+const assert = require('node:assert');
 
-test('valid set summary passes', () => {
-  const s = { setId: 's1', name: 'Alpha', agentCount: 3, description: 'Desc' };
-  expect(() => validateSetSummary(s)).not.toThrow();
-});
+describe('agentsMdSchema', () => {
+  it('valid set summary passes', () => {
+    const s = { setId: 's1', name: 'Alpha', agentCount: 3, description: 'Desc' };
+    assert.doesNotThrow(() => validateSetSummary(s));
+  });
 
-test('missing setId fails', () => {
-  const s = { name: 'Alpha', agentCount: 3, description: 'Desc' };
-  expect(() => validateSetSummary(s)).toThrow();
-});
+  it('missing setId fails', () => {
+    const s = { name: 'Alpha', agentCount: 3, description: 'Desc' };
+    assert.throws(() => validateSetSummary(s));
+  });
 
-test('valid agent entry passes', () => {
-  const a = { agentName: 'agent1', role: 'worker', capabilities: ['read'], version: '1.0.0' };
-  expect(() => validateAgentEntry(a)).not.toThrow();
-});
+  it('valid agent entry passes', () => {
+    const a = { agentName: 'agent1', role: 'worker', capabilities: ['read'], version: '1.0.0' };
+    assert.doesNotThrow(() => validateAgentEntry(a));
+  });
 
-test('missing agentName fails', () => {
-  const a = { role: 'worker', capabilities: ['read'], version: '1.0.0' };
-  expect(() => validateAgentEntry(a)).toThrow();
+  it('missing agentName fails', () => {
+    const a = { role: 'worker', capabilities: ['read'], version: '1.0.0' };
+    assert.throws(() => validateAgentEntry(a));
+  });
 });

@@ -1,14 +1,18 @@
 const { bootstrapPlugin, getSetChoices, triggerAgentsSets } = require('../src/pluginBootstrap');
+const { describe, it } = require('node:test');
+const assert = require('node:assert');
 
-test('bootstrapPlugin loads set index and returns summary', async () => {
-  const ctx = { setsPath: '/tmp/fake-sets.json' };
-  await bootstrapPlugin(ctx);
-  const choices = getSetChoices();
-  expect(Array.isArray(choices)).toBe(true);
-});
+describe('pluginBootstrap', () => {
+  it('bootstrapPlugin loads set index and returns summary', async () => {
+    const ctx = { setsPath: '/tmp/fake-sets.json' };
+    await bootstrapPlugin(ctx);
+    const choices = getSetChoices();
+    assert.ok(Array.isArray(choices));
+  });
 
-test('triggerAgentsSets returns a tiny ack', async () => {
-  const ack = await triggerAgentsSets();
-  expect(typeof ack).toBe('string');
-  expect(ack.length).toBeLessThan(40);
+  it('triggerAgentsSets returns a tiny ack', async () => {
+    const ack = await triggerAgentsSets();
+    assert.strictEqual(typeof ack, 'string');
+    assert.ok(ack.length < 40);
+  });
 });

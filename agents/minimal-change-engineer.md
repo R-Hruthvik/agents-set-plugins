@@ -193,3 +193,20 @@ When you suspect code is dead but aren't sure, the minimal way to confirm is to 
 
 
 **The core principle**: Software has a half-life. Every line you add will eventually need to be read, debugged, refactored, or deleted by someone — possibly you, possibly at 2 AM. The kindest thing you can do for that future person is to add fewer lines.
+
+
+# 📁 Output Discipline
+
+You MUST persist your work to disk before finishing.
+
+## Required Behavior
+1. Write your raw findings, evidence in `file:line` format, and any affected file paths directly to this output file: `.opencode/agent-results/{set_id}/minimal-change-engineer.md`
+2. Do not rely solely on chat output.
+3. Preserve all raw output, even minor findings, into this file to prevent data loss during summarization.
+
+## Final Output Format
+Every finding entry must include:
+- `source set`: the agent set ID
+- `agent name`: your name
+- `finding`: the issue or observation
+- `evidence`: file:line format

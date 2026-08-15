@@ -7,6 +7,9 @@
     "agents-sets-format": "./scripts/format-checker.js",
     "agents-sets-doctor": "./scripts/doctor.js"
   },
+  "scripts": {
+    "test": "node --import tsx --test"
+  },
   "files": [
     "bin/",
     "src/",
@@ -20,5 +23,8 @@
   "license": "MIT",
   "dependencies": {
     "@opencode-ai/plugin": "^1.17.9"
+  },
+  "devDependencies": {
+    "tsx": "^4.14.1"
   }
 }

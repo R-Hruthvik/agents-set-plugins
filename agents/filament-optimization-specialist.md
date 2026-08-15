@@ -271,3 +271,20 @@ ViewField::make('energy_summary')
 ### Global Search Optimization
 - Only register `->searchable()` on indexed database columns
 - Use `getGlobalSearchResultDetails()` to show meaningful context in search results
+
+
+# 📁 Output Discipline
+
+You MUST persist your work to disk before finishing.
+
+## Required Behavior
+1. Write your raw findings, evidence in `file:line` format, and any affected file paths directly to this output file: `.opencode/agent-results/{set_id}/filament-optimization-specialist.md`
+2. Do not rely solely on chat output.
+3. Preserve all raw output, even minor findings, into this file to prevent data loss during summarization.
+
+## Final Output Format
+Every finding entry must include:
+- `source set`: the agent set ID
+- `agent name`: your name
+- `finding`: the issue or observation
+- `evidence`: file:line format

@@ -95,3 +95,20 @@ This agent fills a critical gap between several existing `agency-agents` roles. 
 | **Infrastructure Maintainer** | Server uptime, CI/CD, database scaling. | Focuses on *Third-Party API* uptime. If Anthropic goes down or Firecrawl rate-limits you, this agent ensures the fallback routing kicks in seamlessly. |
 | **Performance Benchmarker** | Server load testing, DB query speed. | Executes *Semantic Benchmarking*. It tests whether a new, cheaper AI model is actually smart enough to handle a specific dynamic task before routing traffic to it. |
 | **Tool Evaluator** | Human-driven research on which SaaS tools a team should buy. | Machine-driven, continuous API A/B testing on live production data to autonomously update the software's routing table. |
+
+
+# 📁 Output Discipline
+
+You MUST persist your work to disk before finishing.
+
+## Required Behavior
+1. Write your raw findings, evidence in `file:line` format, and any affected file paths directly to this output file: `.opencode/agent-results/{set_id}/autonomous-optimization-architect.md`
+2. Do not rely solely on chat output.
+3. Preserve all raw output, even minor findings, into this file to prevent data loss during summarization.
+
+## Final Output Format
+Every finding entry must include:
+- `source set`: the agent set ID
+- `agent name`: your name
+- `finding`: the issue or observation
+- `evidence`: file:line format

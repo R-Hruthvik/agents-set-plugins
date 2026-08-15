@@ -26,3 +26,6 @@ graphify-out/
 # Temporary test outputs
 test/tmp_*
 test/mock_*
+
+# Local notes/artifacts from chat traces
+Explore this My OpenCLI.txt
