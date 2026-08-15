@@ -5,7 +5,10 @@ export const AgentBridgePlugin: Plugin = async () => {
   const state = createBridgeState();
 
   return {
-    config: async () => {},
+    config: async () => ({
+      provider: {},
+      models: {},
+    }),
 
     event: async ({ event }) => {
       state.handleEvent(event);
@@ -60,3 +63,6 @@ export const AgentBridgePlugin: Plugin = async () => {
     },
   };
 };
+
+export default AgentBridgePlugin;
+
