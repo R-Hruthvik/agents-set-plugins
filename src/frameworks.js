@@ -108,6 +108,11 @@ function installSetsAndPlugins(targetConfig, setObjs, pkgInfo) {
   const pluginTarget = path.join(targetConfig.dir, 'plugins');
   if (fs.existsSync(pkgInfo.pluginsDir)) {
     ensureDir(pluginTarget);
+    for (const file of fs.readdirSync(pluginTarget)) {
+      if (!fs.readdirSync(pkgInfo.pluginsDir).includes(file)) {
+        try { fs.unlinkSync(path.join(pluginTarget, file)); } catch {}
+      }
+    }
     for (const file of fs.readdirSync(pkgInfo.pluginsDir)) {
       fs.copyFileSync(path.join(pkgInfo.pluginsDir, file), path.join(pluginTarget, file));
     }

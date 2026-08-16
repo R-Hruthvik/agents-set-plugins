@@ -3,7 +3,7 @@ import path from "path";
 import os from "os";
 import assert from "assert/strict";
 import { it, before, after } from "node:test";
-import { createBridgeState } from "../plugins/agent-bridge-core";
+import { createBridgeState } from "../plugins/agent-bridge";
 
 let tmpDir: string;
 let outFile: string;
